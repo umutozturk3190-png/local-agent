@@ -17,13 +17,13 @@ def load_skills(agent):
             from tools.browser import BROWSER_TOOL_DEF, browse_webpage
             agent.add_tool(BROWSER_TOOL_DEF, browse_webpage)
             print("🦞 Skill Enabled: Browser Automation")
-        except ImportError:
-            pass
+        except Exception as e:
+            print(f"⚠️ Could not load Browser tool: {e}")
             
     if os.getenv("ENABLE_SYSTEM_UI") == "True":
         try:
             from tools.system_ui import SYSTEM_UI_TOOL_DEF, control_ui
             agent.add_tool(SYSTEM_UI_TOOL_DEF, control_ui)
             print("🦞 Skill Enabled: System UI Control")
-        except ImportError:
-            pass
+        except Exception as e:
+            print(f"⚠️ Could not load System UI tool (Wayland/X11 issue?): {e}")
