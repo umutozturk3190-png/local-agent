@@ -28,24 +28,70 @@ class Agent:
         api_messages = [system_msg] + messages
         
         while True:
-            response = ollama.chat(
-                model=self.model,
-                messages=api_messages,
-                tools=self.tools if self.tools else None
-            )
+            try:
+                if getattr(self, "native_tools_supported", True):
+                    response = ollama.chat(
+                        model=self.model,
+                        messages=api_messages,
+                        tools=self.tools if self.tools else None
+                    )
+                else:
+                    response = ollama.chat(
+                        model=self.model,
+                        messages=api_messages
+                    )
+            except Exception as e:
+                # Catch 400 error for unsupported tools
+                if "does not support tools" in str(e).lower() or "400" in str(e):
+                    self.native_tools_supported = False
+                    
+                    import json
+                    def clean_tool(t_def: Dict[str, Any]) -> Dict[str, Any]:
+                        return {
+                            "name": t_def["function"]["name"], 
+                            "description": t_def["function"]["description"], 
+                            "parameters": t_def["function"]["parameters"]
+                        }
+                        
+                    clean_tools = [clean_tool(t) for t in self.tools]
+                    tools_text = json.dumps(clean_tools, indent=2)
+                    
+                    fallback_system_msg = {
+                        "role": "system",
+                        "content": f"{system_content} You have terminal and system tools. IMPORTANT: Because your brain doesn't support the native tools API, you MUST output raw JSON to call a tool, in EXACTLY this format: [{{\"function\": {{\"name\": \"execute_bash\", \"arguments\": {{\"command\": \"ls\"}}}}}}]. DO NOT output anything else if you want to use a tool. Available tools: {tools_text}"
+                    }
+                    api_messages[0] = fallback_system_msg
+                    continue
+                else:
+                    raise e
+
             msg = response["message"]
             
             # Fallback for models that output raw JSON string instead of native tool calls
             content = msg.get("content", "").strip()
-            if not msg.get("tool_calls") and content.startswith("{") and content.endswith("}") and '"name"' in content:
+            if not msg.get("tool_calls"):
+                import re
                 import json
-                try:
-                    parsed = json.loads(content)
-                    if "name" in parsed and "arguments" in parsed:
-                        msg["tool_calls"] = [{"function": parsed}]
+                
+                # Check for list of functions format (from fallback prompt)
+                match = re.search(r'\[\s*\{\s*"function"\s*:\s*\{.*?\}\s*\}\s*\]', content, re.DOTALL)
+                if match:
+                    try:
+                        parsed = json.loads(match.group(0))
+                        msg["tool_calls"] = parsed
                         msg["content"] = ""
-                except Exception:
-                    pass
+                    except Exception:
+                        pass
+                else:
+                    # Check for direct object format (raw unprompted output)
+                    match_obj = re.search(r'\{\s*"name"\s*:\s*".*?",\s*"arguments"\s*:\s*\{.*?\}\s*\}', content, re.DOTALL)
+                    if match_obj:
+                        try:
+                            parsed_obj = json.loads(match_obj.group(0))
+                            msg["tool_calls"] = [{"function": parsed_obj}]
+                            msg["content"] = ""
+                        except Exception:
+                            pass
             
             messages.append(msg)
             api_messages.append(msg)

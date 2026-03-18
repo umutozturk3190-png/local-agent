@@ -103,5 +103,12 @@ echo "ENABLE_BASH=True" >> $env_file
 echo "ENABLE_FILESYSTEM=True" >> $env_file
 echo "ENABLE_EDITOR=True" >> $env_file
 
+read -p "Enable ULTRA SAFE MODE (Blocks rm -rf, sudo, mkfs etc)? [Y/n]: " smode
+if [[ ! "$smode" =~ ^[Nn]$ ]]; then
+    echo "SAFE_MODE=True" >> $env_file
+else
+    echo "SAFE_MODE=False" >> $env_file
+fi
+
 echo "✅ Configuration saved to .env"
 echo "✅ Setup Complete! Run 'source venv/bin/activate && python main.py' to start."

@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 BASH_TOOL_DEF = {
@@ -19,6 +20,13 @@ BASH_TOOL_DEF = {
 }
 
 def execute_bash(command: str) -> str:
+    safe_mode = os.getenv("SAFE_MODE", "True") == "True"
+    if safe_mode:
+        dangerous_keywords = ["rm -rf", "sudo ", "mkfs", "dd ", "> /dev/", "chmod -R", "chown -R"]
+        for kw in dangerous_keywords:
+            if kw in command:
+                return f"Command blocked by SAFE_MODE. You are not allowed to use '{kw}'. Find a safer alternative."
+                
     try:
         result = subprocess.run(
             command,
