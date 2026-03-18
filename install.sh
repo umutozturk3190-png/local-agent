@@ -19,13 +19,33 @@ env_file=".env"
 echo ""
 echo "--- Configuration ---"
 
+echo "Available local Ollama models:"
+if command -v ollama &> /dev/null; then
+    ollama list | awk 'NR>1 {print "  - " $1}'
+else
+    echo "  (Ollama not found in PATH or not running)"
+fi
+echo ""
+
 read -p "Which Ollama model do you want to use? (default: llama3.2): " model
 model=${model:-llama3.2}
 
 read -p "Enter Telegram Bot Token (leave blank to skip): " tgtok
 
 read -p "Enable Browser Tool? (Playwright) [y/N]: " browser
-read -p "Enable System UI Control? (PyAutoGUI) [y/N]: " sysui
+
+# Detect Wayland
+is_wayland=false
+if [ "$XDG_SESSION_TYPE" = "wayland" ] || [ "$WAYLAND_DISPLAY" != "" ]; then
+    is_wayland=true
+fi
+
+if [ "$is_wayland" = true ]; then
+    echo "⚠️  Wayland Display Detected! PyAutoGUI (System UI) usually fails on Wayland."
+    read -p "Enable System UI Control anyway? (Not recommended) [y/N]: " sysui
+else
+    read -p "Enable System UI Control? (PyAutoGUI) [y/N]: " sysui
+fi
 
 echo "OLLAMA_MODEL=\"$model\"" > $env_file
 echo "TELEGRAM_BOT_TOKEN=\"$tgtok\"" >> $env_file
@@ -51,6 +71,5 @@ fi
 echo "ENABLE_BASH=True" >> $env_file
 echo "ENABLE_FILESYSTEM=True" >> $env_file
 
-echo ""
 echo "✅ Configuration saved to .env"
 echo "✅ Setup Complete! Run 'source venv/bin/activate && python main.py' to start."

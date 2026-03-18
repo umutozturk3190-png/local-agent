@@ -17,14 +17,23 @@ class Agent:
         and returns the final text response.
         Updates the messages list in-place with tool calls and outputs.
         """
+        system_msg = {
+            "role": "system",
+            "content": "You are Local-Agent, a helpful, friendly AI assistant. You have terminal and system tools. CRITICAL RULE: DO NOT use any tools unless the user explicitly requests an action that requires them (e.g., 'run this command', 'open this file', 'search the web'). If the user just says hello, chats with you, or asks a conversational question (e.g. 'answer me in Turkish'), you MUST reply directly in natural text without calling any tools."
+        }
+        
+        # We pass a copy to the API to avoid polluting the DB with the system prompt repeatedly
+        api_messages = [system_msg] + messages
+        
         while True:
             response = ollama.chat(
                 model=self.model,
-                messages=messages,
+                messages=api_messages,
                 tools=self.tools if self.tools else None
             )
             msg = response["message"]
             messages.append(msg)
+            api_messages.append(msg)
             
             # If no tool calls, this is the final final response to the user
             if not msg.get("tool_calls"):
