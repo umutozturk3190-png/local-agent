@@ -1,4 +1,5 @@
 import ollama
+import os
 from typing import List, Dict, Any, Callable
 
 class Agent:
@@ -17,9 +18,10 @@ class Agent:
         and returns the final text response.
         Updates the messages list in-place with tool calls and outputs.
         """
+        system_content = os.getenv("AGENT_PERSONA", "You are Local-Agent, a helpful AI assistant.")
         system_msg = {
             "role": "system",
-            "content": "You are Local-Agent, a helpful AI assistant. You have terminal and system tools. IMPORTANT: If the user asks a conversational question, reply naturally. But if the user asks you to perform ANY computer action (like listing directories, exploring files), YOU MUST use the tool immediately. Do not ask for permission. Do not output raw JSON, use the native tool API."
+            "content": f"{system_content} You have terminal and system tools. IMPORTANT: If the user asks a conversational question, reply naturally. But if the user asks you to perform ANY computer action (like listing directories, exploring files), YOU MUST use the tool immediately. Do not ask for permission. Do not output raw JSON, use the native tool API."
         }
         
         # We pass a copy to the API to avoid polluting the DB with the system prompt repeatedly

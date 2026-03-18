@@ -1,3 +1,4 @@
+import os
 from playwright.sync_api import sync_playwright
 
 BROWSER_TOOL_DEF = {
@@ -19,9 +20,19 @@ BROWSER_TOOL_DEF = {
 }
 
 def browse_webpage(url: str) -> str:
+    engine = os.getenv("PLAYWRIGHT_BROWSER", "chromium").lower()
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            if engine == "chrome":
+                browser = p.chromium.launch(channel="chrome", headless=True)
+            elif engine == "firefox":
+                browser = p.firefox.launch(headless=True)
+            elif engine == "brave":
+                # Typical brave path on linux
+                browser = p.chromium.launch(executable_path="/usr/bin/brave-browser", headless=True)
+            else:
+                browser = p.chromium.launch(headless=True)
+                
             page = browser.new_page()
             page.goto(url, timeout=30000)
             text = page.locator("body").inner_text()

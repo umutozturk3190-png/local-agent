@@ -11,6 +11,13 @@ def load_skills(agent):
         agent.add_tool(READ_FILE_DEF, read_file)
         agent.add_tool(WRITE_FILE_DEF, write_file)
         
+    if os.getenv("ENABLE_EDITOR", "True") == "True":
+        try:
+            from tools.editor import EDITOR_TOOL_DEF, edit_file
+            agent.add_tool(EDITOR_TOOL_DEF, edit_file)
+        except Exception as e:
+            print(f"⚠️ Could not load Editor tool: {e}")
+        
     # Optional Skills
     if os.getenv("ENABLE_BROWSER") == "True":
         try:
