@@ -25,9 +25,18 @@ class Agent:
         }
         
         # We pass a copy to the API to avoid polluting the DB with the system prompt repeatedly
-        api_messages = [system_msg] + messages
+        api_messages = [{"role": m["role"], "content": m.get("content", "")} for m in messages]
+        api_messages.insert(0, system_msg)
         
         while True:
+            # Aggressive Reminder for Legacy Mode
+            if not getattr(self, "native_tools_supported", True) and len(api_messages) > 1:
+                if api_messages[-1]["role"] == "user":
+                    reminder = "\n\n[SYSTEM REMINDER: You are an agent with tools. Do NOT write code to answer this if the user wants you to run a command. To run a command or use a tool, you MUST output EXACTLY and ONLY the JSON format: [{\"function\": {\"name\": \"execute_bash\", \"arguments\": {\"command\": \"...\"}}}]]"
+                    # Prevent duplicating the reminder if loop retries
+                    if "[SYSTEM REMINDER" not in api_messages[-1]["content"]:
+                        api_messages[-1]["content"] += reminder
+
             try:
                 if getattr(self, "native_tools_supported", True):
                     response = ollama.chat(
