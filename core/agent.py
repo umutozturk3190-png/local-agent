@@ -19,7 +19,7 @@ class Agent:
         """
         system_msg = {
             "role": "system",
-            "content": "You are Local-Agent, a helpful, friendly AI assistant. You have terminal and system tools. CRITICAL RULE: DO NOT use any tools unless the user explicitly requests an action that requires them (e.g., 'run this command', 'open this file', 'search the web'). If the user just says hello, chats with you, or asks a conversational question (e.g. 'answer me in Turkish'), you MUST reply directly in natural text without calling any tools."
+            "content": "You are Local-Agent, a helpful AI assistant. You have terminal and system tools. IMPORTANT: If the user asks a conversational question, reply naturally. But if the user asks you to perform ANY computer action (like listing directories, exploring files), YOU MUST use the tool immediately. Do not ask for permission. Do not output raw JSON, use the native tool API."
         }
         
         # We pass a copy to the API to avoid polluting the DB with the system prompt repeatedly
@@ -32,10 +32,23 @@ class Agent:
                 tools=self.tools if self.tools else None
             )
             msg = response["message"]
+            
+            # Fallback for models that output raw JSON string instead of native tool calls
+            content = msg.get("content", "").strip()
+            if not msg.get("tool_calls") and content.startswith("{") and content.endswith("}") and '"name"' in content:
+                import json
+                try:
+                    parsed = json.loads(content)
+                    if "name" in parsed and "arguments" in parsed:
+                        msg["tool_calls"] = [{"function": parsed}]
+                        msg["content"] = ""
+                except Exception:
+                    pass
+            
             messages.append(msg)
             api_messages.append(msg)
             
-            # If no tool calls, this is the final final response to the user
+            # If no tool calls, this is the final response to the user
             if not msg.get("tool_calls"):
                 return msg.get("content", "")
                 
