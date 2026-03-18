@@ -111,26 +111,35 @@ class Agent:
                 
             # If there are tool calls, execute them
             for tool_call in msg["tool_calls"]:
-                name = tool_call["function"]["name"]
-                args = tool_call["function"]["arguments"]
+                tool_name = tool_call["function"]["name"]
+                tool_args = tool_call["function"]["arguments"]
                 
-                if name in self.tool_map:
+                tool_result = None
+                if tool_name in self.tool_map:
                     try:
-                        result = self.tool_map[name](**args)
-                        messages.append({
-                            "role": "tool",
-                            "name": name,
-                            "content": str(result)
-                        })
+                        tool_result = self.tool_map[tool_name](**tool_args)
                     except Exception as e:
-                        messages.append({
-                            "role": "tool",
-                            "name": name,
-                            "content": f"Error executing tool {name}: {str(e)}"
-                        })
+                        tool_result = f"Error executing tool {tool_name}: {str(e)}"
                 else:
-                    messages.append({
+                    tool_result = f"Error: Unknown tool {tool_name}"
+                
+                # Format tool execution response smartly based on Native vs Legacy modes
+                if getattr(self, "native_tools_supported", True):
+                    tool_msg = {
                         "role": "tool",
-                        "name": name,
-                        "content": f"Error: Unknown tool {name}"
-                    })
+                        "content": str(tool_result),
+                        "name": tool_name
+                    }
+                else:
+                    # Legacy fallback models will CRASH or LOOP if sent a 'tool' role.
+                    # Send the result back as an invisible system-like user prompt.
+                    tool_msg = {
+                        "role": "user",
+                        "content": f"[SYSTEM NOTIFICATION RE-ENTRY] The tool '{tool_name}' was executed successfully by your request. Here is the raw terminal/system output:\n\n{str(tool_result)}\n\nPlease read this output and provide a natural language response to the user. DO NOT output JSON anymore unless the user asks you to run another command."
+                    }
+                    
+                messages.append(tool_msg)
+                api_messages.append(tool_msg)
+                
+        # Final safety catch-all
+        return "I completed the action but lost my train of thought."
